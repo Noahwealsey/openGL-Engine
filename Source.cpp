@@ -19,9 +19,9 @@ glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
-glm::vec3 lightPos(-1.2f, 1.2f, 2.f); // Move light further away and higher
-glm::vec3 lightColor(1.0f, 1.0f, 1.0f); // Pure white light
-glm::vec3 objectColor(0.8f, 0.4f, 0.6f); // Lighter color to see effects better
+
+glm::vec3 lightColor(1.0f, 1.0f, 1.0f); 
+glm::vec3 objectColor(0.8f, 0.4f, 0.6f); 
 
 static void ClearError() {
     while (glGetError() != GL_NO_ERROR);
@@ -111,7 +111,7 @@ static unsigned int createShaders(const std::string& vertexShader, const std::st
 
 //Camera control variables
 bool firstMouse = true;
-float yaw = -90.0f; // looking towards -Z
+float yaw = -90.0f; 
 float pitch = 0.0f;
 float lastX = 400.0f;
 float lastY = 300.0f;
@@ -170,11 +170,6 @@ void processInput(GLFWwindow* window, float delta) {
 
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) 
 		cameraPos.y += cameraSpeed;
-
-    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) {
-        std::cout << "Light pos: " << lightPos.x << ", " << lightPos.y << ", " << lightPos.z << std::endl;
-        std::cout << "Camera pos: " << cameraPos.x << ", " << cameraPos.y << ", " << cameraPos.z << std::endl;
-    }
 
 }
 
@@ -256,8 +251,71 @@ int main() {
         22, 23, 20
     };
 
+    glm::vec3 cubePosition[] = {
+        glm::vec3(0.0f, 0.0f, 0.0f), // Center
+        glm::vec3(2.0f, 0.0f, 0.0f), // Right
+        glm::vec3(-2.0f, 0.0f, 0.0f), // Left
+        glm::vec3(0.0f, 2.0f, 0.0f), // Up
+        glm::vec3(0.0f, -2.0f, 0.0f) // Down
+	};
+
+    float lightVertices[] = {
+        // Positions (x, y, z) for a cube scaled to 0.1 (side length 0.2)
+        // Back face (facing -Z)
+        -0.1f, -0.1f, -0.1f, // Vertex 0
+         0.1f, -0.1f, -0.1f, // Vertex 1
+         0.1f,  0.1f, -0.1f, // Vertex 2
+        -0.1f,  0.1f, -0.1f, // Vertex 3
+
+        // Front face (facing +Z)
+        -0.1f, -0.1f,  0.1f, // Vertex 4
+         0.1f, -0.1f,  0.1f, // Vertex 5
+         0.1f,  0.1f,  0.1f, // Vertex 6
+        -0.1f,  0.1f,  0.1f, // Vertex 7
+
+        // Left face (facing -X)
+        -0.1f,  0.1f,  0.1f, // Vertex 8
+        -0.1f,  0.1f, -0.1f, // Vertex 9
+        -0.1f, -0.1f, -0.1f, // Vertex 10
+        -0.1f, -0.1f,  0.1f, // Vertex 11
+
+        // Right face (facing +X)
+         0.1f,  0.1f,  0.1f, // Vertex 12
+         0.1f,  0.1f, -0.1f, // Vertex 13
+         0.1f, -0.1f, -0.1f, // Vertex 14
+         0.1f, -0.1f,  0.1f, // Vertex 15
+
+         // Bottom face (facing -Y)
+         -0.1f, -0.1f, -0.1f, // Vertex 16
+          0.1f, -0.1f, -0.1f, // Vertex 17
+          0.1f, -0.1f,  0.1f, // Vertex 18
+         -0.1f, -0.1f,  0.1f, // Vertex 19
+
+         // Top face (facing +Y)
+         -0.1f,  0.1f, -0.1f, // Vertex 20
+          0.1f,  0.1f, -0.1f, // Vertex 21
+          0.1f,  0.1f,  0.1f, // Vertex 22
+         -0.1f,  0.1f,  0.1f  // Vertex 23
+    };
 
     unsigned int VBO, VAO, EBO;
+    unsigned int lightVAO, lightVBO;
+    
+    glGenVertexArrays(1, &lightVAO);
+    glGenBuffers(1, &lightVBO);
+    glGenBuffers(1, &EBO);
+
+    glBindVertexArray(lightVAO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, lightVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(lightVertices), lightVertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
     glGenBuffers(1, &EBO);
@@ -280,9 +338,12 @@ int main() {
 
 
     //shader parsing and loading
-	ShaderProgrammerSource source = ParseShader("resources/Shaders/Basic_shader.glsl");
-	unsigned int shader = createShaders(source.vertexShaderSource, source.fragmentShaderSource);
+    ShaderProgrammerSource source = ParseShader("resources/Shaders/Basic_shader.glsl");
+    ShaderProgrammerSource lightSource= ParseShader("resources/Shaders/bulb_shader.glsl");
+    unsigned int shader = createShaders(source.vertexShaderSource, source.fragmentShaderSource);
+    unsigned int lightShader = createShaders(lightSource.vertexShaderSource, lightSource.fragmentShaderSource);
     
+
 	glEnable(GL_DEPTH_TEST); // Enable depth testing 
 
 	//int location = glGetUniformLocation(shader, "color");
@@ -300,8 +361,14 @@ int main() {
         float deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
         processInput(window, deltaTime);
+
+        float circlePath = sin(glfwGetTime()) * sin(glfwGetTime()) +
+            cos(glfwGetTime()) * cos(glfwGetTime());
+
+        glm::vec3 lightPos(-.1f, 1.2f, 10.f * circlePath);
+
         glm::mat4 model = glm::mat4(1.0f);
-        //model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f)); // Rotate over time
+        model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f)); // Rotate over time
 
         glm::mat4 view = glm::lookAt(
             cameraPos,              // Position of the camera
@@ -322,22 +389,35 @@ int main() {
 
         glUniformMatrix4fv(glGetUniformLocation(shader, "u_proj"), 1, GL_FALSE, glm::value_ptr(projection));
 		glUniformMatrix4fv(glGetUniformLocation(shader, "u_view"), 1, GL_FALSE, glm::value_ptr(view));
-		glUniformMatrix4fv(glGetUniformLocation(shader, "u_modal"), 1, GL_FALSE, glm::value_ptr(model));
 
         glUniform3fv(glGetUniformLocation(shader, "lightPos"), 1, glm::value_ptr(lightPos));
 		glUniform3fv(glGetUniformLocation(shader, "lightColor"), 1, glm::value_ptr(lightColor));
 		glUniform3fv(glGetUniformLocation(shader, "objectColor"), 1, glm::value_ptr(objectColor));
         glUniform3fv(glGetUniformLocation(shader, "cameraPos"), 1, glm::value_ptr(cameraPos));
-		
+        for (int i = 0; i < 5; i++) {
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::translate(model, cubePosition[i]); // Translate to the position
+            model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f)); // Rotate over time
+            glUniformMatrix4fv(glGetUniformLocation(shader, "u_modal"), 1, GL_FALSE, glm::value_ptr(model));
+            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+            
+        }
     
+        glUseProgram(lightShader);
+
+        glUniformMatrix4fv(glGetUniformLocation(lightShader, "u_proj"), 1, GL_FALSE, glm::value_ptr(projection));
+        glUniformMatrix4fv(glGetUniformLocation(lightShader, "u_view"), 1, GL_FALSE, glm::value_ptr(view));
+
+        glm::mat4 lightModel = glm::mat4(1.0f);
+        lightModel = glm::translate(lightModel, lightPos);
+        glUniformMatrix4fv(glGetUniformLocation(lightShader, "u_modal"), 1, GL_FALSE, glm::value_ptr(lightModel));
+
+        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
         //glUniform1f(glGetUniformLocation(shader, "time"), currentFrame);
         // 
         //glUniform1f(timeLocation, currentFrame);
         //glUniform3f(location, 1.0f, 0.f, 0.f);
-
-        // Draw using EBO (no need to call glDrawArrays here)
-        glBindVertexArray(VAO);
-        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
 
         glfwSwapBuffers(window);
         glfwPollEvents();

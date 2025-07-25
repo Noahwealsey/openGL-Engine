@@ -38,11 +38,6 @@ void main()
     // Calculate view direction (from fragment to camera)
     vec3 viewDir = normalize(cameraPos - FragPos);
 
-    // Debug: visualize normals
-    // Uncomment this line to see if normals are correct (should show colorful cube)
-     //FragColor = vec4(norm * 0.5 + 0.5, 1.0);
-     //return;
-
     // Ambient lighting
     float ambientStrength = 0.2;
     vec3 ambient = ambientStrength * lightColor;
@@ -51,19 +46,11 @@ void main()
     float diff = max(dot(norm, lightDir), 0.0);
     vec3 diffuse = diff * lightColor;
 
-    // Debug: show only diffuse lighting
-    // FragColor = vec4(diffuse * objectColor, 1.0);
-    // return;
-
     // Specular lighting
     float specularStrength = 0.8;
     vec3 reflectDir = reflect(-lightDir, norm);
     float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
     vec3 specular = specularStrength * spec * lightColor;
-
-    // Debug: show only specular
-    // FragColor = vec4(vec3(spec), 1.0);
-    // return;
 
     vec3 result = (ambient + diffuse + specular) * objectColor;
     FragColor = vec4(result, 1.0);
