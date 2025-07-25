@@ -14,31 +14,57 @@ uniform mat4 u_proj;
 void main()
 {
     FragPos = vec3(u_modal * vec4(aPos, 1.0));
-	Normal = mat3(transpose(inverse(u_modal))) * aNormal; 
+    Normal = mat3(transpose(inverse(u_modal))) * aNormal;
     gl_Position = u_proj*u_view*vec4(FragPos, 1.0);
 }
 
 #shader Fragment
-
 #version 330 core
-
-uniform vec3 lightDir;
+uniform vec3 lightPos;
 uniform vec3 lightColor;
 uniform vec3 objectColor;
-
+uniform vec3 cameraPos;
 out vec4 FragColor;
-
 in vec3 FragPos;
 in vec3 Normal;
 
 void main()
 {
     vec3 norm = normalize(Normal);
-	vec3 lightDirNorm = normalize(-lightDir);
-    float diff = max(dot(norm, lightDirNorm), 0.);
-	vec3 ambient = 0.01 * lightColor;
-    vec3 diffuse = diff * lightColor;
-    vec3 result = (ambient + diffuse) * objectColor;
-	FragColor = vec4(result, 1.0);
 
+    // Calculate light direction (from fragment to light)
+    vec3 lightDir = normalize(lightPos - FragPos);
+
+    // Calculate view direction (from fragment to camera)
+    vec3 viewDir = normalize(cameraPos - FragPos);
+
+    // Debug: visualize normals
+    // Uncomment this line to see if normals are correct (should show colorful cube)
+     //FragColor = vec4(norm * 0.5 + 0.5, 1.0);
+     //return;
+
+    // Ambient lighting
+    float ambientStrength = 0.2;
+    vec3 ambient = ambientStrength * lightColor;
+
+    // Diffuse lighting
+    float diff = max(dot(norm, lightDir), 0.0);
+    vec3 diffuse = diff * lightColor;
+
+    // Debug: show only diffuse lighting
+    // FragColor = vec4(diffuse * objectColor, 1.0);
+    // return;
+
+    // Specular lighting
+    float specularStrength = 0.8;
+    vec3 reflectDir = reflect(-lightDir, norm);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+    vec3 specular = specularStrength * spec * lightColor;
+
+    // Debug: show only specular
+    // FragColor = vec4(vec3(spec), 1.0);
+    // return;
+
+    vec3 result = (ambient + diffuse + specular) * objectColor;
+    FragColor = vec4(result, 1.0);
 }

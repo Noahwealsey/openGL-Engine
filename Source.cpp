@@ -19,6 +19,10 @@ glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
+glm::vec3 lightPos(-1.2f, 1.2f, 2.f); // Move light further away and higher
+glm::vec3 lightColor(1.0f, 1.0f, 1.0f); // Pure white light
+glm::vec3 objectColor(0.8f, 0.4f, 0.6f); // Lighter color to see effects better
+
 static void ClearError() {
     while (glGetError() != GL_NO_ERROR);
 }
@@ -163,6 +167,15 @@ void processInput(GLFWwindow* window, float delta) {
 
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) 
+		cameraPos.y += cameraSpeed;
+
+    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) {
+        std::cout << "Light pos: " << lightPos.x << ", " << lightPos.y << ", " << lightPos.z << std::endl;
+        std::cout << "Camera pos: " << cameraPos.x << ", " << cameraPos.y << ", " << cameraPos.z << std::endl;
+    }
+
 }
 
 
@@ -171,6 +184,7 @@ int main() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); // OpenGL 3.3
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
 
     GLFWwindow* window = glfwCreateWindow(800, 600, "OpenGL Window", nullptr, nullptr);
     if (!window) {
@@ -183,69 +197,65 @@ int main() {
 	
 
     float vertices[] = {
-        // Front face (z = -0.5, normal = (0, 0, -1))
+        // Positions         // Normals
+        // Back face (the one you see first, facing -Z)
         -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
          0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
          0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
         -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
 
-        // Back face (z = 0.5, normal = (0, 0, 1))
+        // Front face (facing +Z)
         -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
          0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+         0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+        -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
 
-         // Left face (x = -0.5, normal = (-1, 0, 0))
-         -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-         -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-         -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
-         -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+        // Left face (facing -X)
+        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+        -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+        -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
 
-         // Right face (x = 0.5, normal = (1, 0, 0))
-          0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-          0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
-          0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
-          0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+        // Right face (facing +X)
+         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+         0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+         0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
 
-          // Top face (y = 0.5, normal = (0, 1, 0))
-          -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
-          -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-           0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-           0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+         // Bottom face (facing -Y)
+         -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+          0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+          0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+         -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
 
-           // Bottom face (y = -0.5, normal = (0, -1, 0))
-           -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
-            0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
-            0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
-           -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f
+         // Top face (facing +Y)
+         -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+          0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+          0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+         -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f
     };
 
     unsigned int indices[] = {
-        // Front face (vertices 0-3)
+        // Back face (vertices 0-3)
         0, 1, 2,
         2, 3, 0,
-        // Back face (vertices 4-7)
+        // Front face (vertices 4-7)
         4, 5, 6,
         6, 7, 4,
         // Left face (vertices 8-11)
         8, 9, 10,
         10, 11, 8,
-        // Right face (vertices 12-15)  
+        // Right face (vertices 12-15)
         12, 13, 14,
         14, 15, 12,
-        // Top face (vertices 16-19)
+        // Bottom face (vertices 16-19)
         16, 17, 18,
         18, 19, 16,
-        // Bottom face (vertices 20-23)
+        // Top face (vertices 20-23)
         20, 21, 22,
         22, 23, 20
     };
 
-	glm::vec3 lightPos(2.f, 1.2f, 2.0f); // Position of the light source
-	glm::vec3 lightColor(1.0f, 1.0f, 1.0f); // Color of the light
-	glm::vec3 objectColor(0.f, 0.f, 0.31f); // Color of the object
-	glm::vec3 lightDir = glm::normalize(lightPos - cameraPos); // Direction of the light
-	glm::vec3 ambientLight(0.1f, 0.1f, 0.1f); // Ambient light color
 
     unsigned int VBO, VAO, EBO;
     glGenVertexArrays(1, &VAO);
@@ -291,7 +301,7 @@ int main() {
         lastFrame = currentFrame;
         processInput(window, deltaTime);
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f)); // Rotate over time
+        //model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f)); // Rotate over time
 
         glm::mat4 view = glm::lookAt(
             cameraPos,              // Position of the camera
@@ -310,12 +320,14 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUseProgram(shader);
 
-		glUniform3fv(glGetUniformLocation(shader, "lightDir"), 1, glm::value_ptr(lightDir));
-		glUniform3fv(glGetUniformLocation(shader, "lightColor"), 1, glm::value_ptr(lightColor));
-		glUniform3fv(glGetUniformLocation(shader, "objectColor"), 1, glm::value_ptr(objectColor));
         glUniformMatrix4fv(glGetUniformLocation(shader, "u_proj"), 1, GL_FALSE, glm::value_ptr(projection));
 		glUniformMatrix4fv(glGetUniformLocation(shader, "u_view"), 1, GL_FALSE, glm::value_ptr(view));
 		glUniformMatrix4fv(glGetUniformLocation(shader, "u_modal"), 1, GL_FALSE, glm::value_ptr(model));
+
+        glUniform3fv(glGetUniformLocation(shader, "lightPos"), 1, glm::value_ptr(lightPos));
+		glUniform3fv(glGetUniformLocation(shader, "lightColor"), 1, glm::value_ptr(lightColor));
+		glUniform3fv(glGetUniformLocation(shader, "objectColor"), 1, glm::value_ptr(objectColor));
+        glUniform3fv(glGetUniformLocation(shader, "cameraPos"), 1, glm::value_ptr(cameraPos));
 		
     
         //glUniform1f(glGetUniformLocation(shader, "time"), currentFrame);
