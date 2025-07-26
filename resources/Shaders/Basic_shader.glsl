@@ -19,12 +19,33 @@ void main()
 }
 
 #shader Fragment
+
 #version 330 core
+
+struct Material {
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+    float shininess;
+};
+
+struct Light {
+    vec3 ambient;
+    vec3 diffuse;
+    vec3 specular;
+};
+
+uniform Light light;
+
+uniform Material material;
+
 uniform vec3 lightPos;
 uniform vec3 lightColor;
 uniform vec3 objectColor;
 uniform vec3 cameraPos;
+
 out vec4 FragColor;
+
 in vec3 FragPos;
 in vec3 Normal;
 
@@ -37,20 +58,18 @@ void main()
 
     // Calculate view direction (from fragment to camera)
     vec3 viewDir = normalize(cameraPos - FragPos);
+    vec3 reflectDir = reflect(-lightDir, norm);
 
     // Ambient lighting
-    float ambientStrength = 0.2;
-    vec3 ambient = ambientStrength * lightColor;
+    vec3 ambient = light.ambient*material.ambient * lightColor;
 
     // Diffuse lighting
     float diff = max(dot(norm, lightDir), 0.0);
-    vec3 diffuse = diff * lightColor;
+    vec3 diffuse = light.diffuse*diff * lightColor*material.diffuse;
 
     // Specular lighting
-    float specularStrength = 0.8;
-    vec3 reflectDir = reflect(-lightDir, norm);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-    vec3 specular = specularStrength * spec * lightColor;
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), material.shininess);
+    vec3 specular = light.specular*material.specular * spec * lightColor;
 
     vec3 result = (ambient + diffuse + specular) * objectColor;
     FragColor = vec4(result, 1.0);

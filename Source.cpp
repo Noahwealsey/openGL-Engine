@@ -173,7 +173,6 @@ void processInput(GLFWwindow* window, float delta) {
 
 }
 
-
 int main() {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); // OpenGL 3.3
@@ -380,7 +379,7 @@ int main() {
             (float)800 / (float)600,
             0.1f, 100.0f);
 
-        //glm::mat4 mvp = projection * view * model; // Model-View-Projection 
+        
 
         //glClearColor(0.2f, 0.3f, 0.3f, 1.0f); // Teal
 		glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Dark background
@@ -394,6 +393,26 @@ int main() {
 		glUniform3fv(glGetUniformLocation(shader, "lightColor"), 1, glm::value_ptr(lightColor));
 		glUniform3fv(glGetUniformLocation(shader, "objectColor"), 1, glm::value_ptr(objectColor));
         glUniform3fv(glGetUniformLocation(shader, "cameraPos"), 1, glm::value_ptr(cameraPos));
+
+        GLint matAmbientLoc = glGetUniformLocation (shader, "material.ambient");
+        GLint matDiffuseLoc = glGetUniformLocation (shader, "material.diffuse");
+        GLint matSpecularLoc = glGetUniformLocation(shader, "material.specular");
+        GLint matShineLoc = glGetUniformLocation   (shader, "material.shininess");
+
+        glUniform3f(matAmbientLoc, 0.2f, 0.2f, 0.2f);
+        glUniform3f(matDiffuseLoc, 1.0f, 0.5f, 0.31f);
+        glUniform3f(matSpecularLoc, 0.7f, 0.7f, 0.7f);
+        glUniform1f(matShineLoc, 32.0f);
+
+        GLint lightAmbientLoc = glGetUniformLocation (shader, "light.ambient");
+        GLint lightDiffuseLoc = glGetUniformLocation (shader, "light.diffuse");
+        GLint lightSpecularLoc = glGetUniformLocation(shader, "light.specular");
+
+        glUniform3f(lightAmbientLoc, 0.2f, 0.2f, 0.2f);
+        glUniform3f(lightDiffuseLoc, 1.0f, 1.0f, 1.0f);
+        glUniform3f(lightSpecularLoc, 1.0f, 1.0f, 1.0f);
+
+
         for (int i = 0; i < 5; i++) {
             glm::mat4 model = glm::mat4(1.0f);
             model = glm::translate(model, cubePosition[i]); // Translate to the position

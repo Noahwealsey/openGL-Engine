@@ -1,3 +1,4 @@
 *.vcxproj.*
 x64
 .vs
+GLRebirth.*
