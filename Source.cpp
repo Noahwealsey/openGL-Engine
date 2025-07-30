@@ -350,18 +350,18 @@ int main() {
     };
 
     unsigned int VBO, VAO, EBO;
-    unsigned int lightVAO, lightVBO;
-    
+    unsigned int lightVAO, lightVBO, lightEBO;  // Add separate EBO for light
+
     glGenVertexArrays(1, &lightVAO);
     glGenBuffers(1, &lightVBO);
-    glGenBuffers(1, &EBO);
+    glGenBuffers(1, &lightEBO);  // Generate separate EBO
 
     glBindVertexArray(lightVAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, lightVBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(lightVertices), lightVertices, GL_STATIC_DRAW);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lightEBO);  // Use separate EBO
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
@@ -383,8 +383,8 @@ int main() {
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float))); // normal
     glEnableVertexAttribArray(1);
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float))); // texture coords
-	glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float))); // texture coords
+    glEnableVertexAttribArray(2);
 
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPosCallback(window, mouse_callback);
@@ -447,29 +447,35 @@ int main() {
 
         glUniformMatrix4fv(glGetUniformLocation(shader, "u_proj"), 1, GL_FALSE, glm::value_ptr(projection));
 		glUniformMatrix4fv(glGetUniformLocation(shader, "u_view"), 1, GL_FALSE, glm::value_ptr(view));
-
-        glUniform3fv(glGetUniformLocation(shader, "lightPos"), 1, glm::value_ptr(lightPos));
-		glUniform3fv(glGetUniformLocation(shader, "lightColor"), 1, glm::value_ptr(lightColor));
-		glUniform3fv(glGetUniformLocation(shader, "objectColor"), 1, glm::value_ptr(objectColor));
+        lightPos.x = sin(glfwGetTime()) * 2.0f;
+        lightPos.z = cos(glfwGetTime()) * 2.0f;
+        glUniform3fv(glGetUniformLocation(shader, "light.position"), 1, glm::value_ptr(lightPos));
         glUniform3fv(glGetUniformLocation(shader, "cameraPos"), 1, glm::value_ptr(cameraPos));
 
         GLint matAmbientLoc = glGetUniformLocation (shader, "material.ambient");
-        GLint matDiffuseLoc = glGetUniformLocation (shader, "material.diffuse");
-        GLint matSpecularLoc = glGetUniformLocation(shader, "material.specular");
+        glUniform1i(glGetUniformLocation(shader, "material.diffuse"), 0); // GL_TEXTURE0
+        glUniform1i(glGetUniformLocation(shader, "material.specular"), 1); // GL_TEXTURE1
         GLint matShineLoc = glGetUniformLocation   (shader, "material.shininess");
 
         glUniform3f(matAmbientLoc, 0.2f, 0.2f, 0.2f);
-        glUniform3f(matDiffuseLoc, 0.0f, 0.f, 0.f);
-        glUniform3f(matSpecularLoc, 1.f, 1.0f, 1.0f);
         glUniform1f(matShineLoc, 16.0f);
 
         GLint lightAmbientLoc = glGetUniformLocation (shader, "light.ambient");
         GLint lightDiffuseLoc = glGetUniformLocation (shader, "light.diffuse");
         GLint lightSpecularLoc = glGetUniformLocation(shader, "light.specular");
+		GLint lightColorLoc = glGetUniformLocation(shader, "light.color");
 
         glUniform3f(lightAmbientLoc, 0.2f, 0.2f, 0.2f);
         glUniform3f(lightDiffuseLoc, 1.0f, 1.0f, 1.0f);
         glUniform3f(lightSpecularLoc, 1.0f, 1.0f, 1.0f);
+		glUniform3f(lightColorLoc, lightColor.x, lightColor.y, lightColor.z);
+
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, diffuseMap);
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, specularMap);
 
         for (int i = 0; i < 5; i++) {
             glm::mat4 model = glm::mat4(1.0f);
@@ -479,26 +485,6 @@ int main() {
             glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
             
         }
-        
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, diffuseMap);
-
-        glActiveTexture(GL_TEXTURE1);
-        glBindTexture(GL_TEXTURE_2D, specularMap);
-
-
-        glUseProgram(lightShader);
-
-        glUniformMatrix4fv(glGetUniformLocation(lightShader, "u_proj"), 1, GL_FALSE, glm::value_ptr(projection));
-        glUniformMatrix4fv(glGetUniformLocation(lightShader, "u_view"), 1, GL_FALSE, glm::value_ptr(view));
-
-        glm::mat4 lightModel = glm::mat4(1.0f);
-        lightModel = glm::translate(lightModel, lightPos);
-        glUniformMatrix4fv(glGetUniformLocation(lightShader, "u_modal"), 1, GL_FALSE, glm::value_ptr(lightModel));
-        glUniform3fv(glGetUniformLocation(lightShader, "lightColor"), 1, glm::value_ptr(lightColor));
-
-        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
@@ -517,6 +503,19 @@ int main() {
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+        glUseProgram(lightShader);
+
+        glUniformMatrix4fv(glGetUniformLocation(lightShader, "u_proj"), 1, GL_FALSE, glm::value_ptr(projection));
+        glUniformMatrix4fv(glGetUniformLocation(lightShader, "u_view"), 1, GL_FALSE, glm::value_ptr(view));
+
+        glm::mat4 lightModel = glm::mat4(1.0f);
+        lightModel = glm::translate(lightModel, lightPos);
+        glUniformMatrix4fv(glGetUniformLocation(lightShader, "u_modal"), 1, GL_FALSE, glm::value_ptr(lightModel));
+        glUniform3fv(glGetUniformLocation(lightShader, "lightColor"), 1, glm::value_ptr(lightColor));
+
+        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+
 
         //glUniform1f(glGetUniformLocation(shader, "time"), currentFrame);
         // 
