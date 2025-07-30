@@ -1,7 +1,11 @@
+#include<iostream>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include<iostream>
+#include "imgui.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
 #include <cmath>
+#include <thread>
 #include <fstream>
 #include <string>
 #include <sstream>
@@ -10,6 +14,8 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
 #define BREAKER(x) if(!x) __debugbreak();
 #define BREAKCALL(x) ClearError();\
     x;\
@@ -19,7 +25,10 @@ glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
+float circlePath = sin(glfwGetTime()) * sin(glfwGetTime()) +
+cos(glfwGetTime()) * cos(glfwGetTime());
 
+glm::vec3 lightPos(-.1f, 1.2f, 10.f * circlePath);
 glm::vec3 lightColor(1.0f, 1.0f, 1.0f); 
 glm::vec3 objectColor(0.8f, 0.4f, 0.6f); 
 
@@ -116,10 +125,13 @@ float pitch = 0.0f;
 float lastX = 400.0f;
 float lastY = 300.0f;
 float fov = 45.0f;
-
+bool cameraMode = true; //for togglinr camera control and mouse cursor visibility
 float lastFrame = 0.0f;
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
+    if (!cameraMode) {
+        return;
+    }
     if (firstMouse) {
         lastX = xpos;
         lastY = ypos;
@@ -170,8 +182,47 @@ void processInput(GLFWwindow* window, float delta) {
 
     if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) 
 		cameraPos.y += cameraSpeed;
-
+    if (glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS) {
+        cameraMode = !cameraMode;
+        if (cameraMode) {
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        }
+        else {
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        }
+        // Simple debounce: wait a bit to avoid rapid toggling
+        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
 }
+
+unsigned int loadTexture(const char* path) {
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+
+    int width, height, nrComponents;
+    stbi_set_flip_vertically_on_load(true); // Flip image
+    unsigned char* data = stbi_load(path, &width, &height, &nrComponents, 0);
+
+    if (data) {
+        GLenum format = (nrComponents == 3) ? GL_RGB : GL_RGBA;
+        glBindTexture(GL_TEXTURE_2D, textureID);
+
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    }
+    else {
+        std::cout << "Texture failed to load at path: " << path << std::endl;
+    }
+    stbi_image_free(data);
+    return textureID;
+}
+
 
 int main() {
     glfwInit();
@@ -191,43 +242,44 @@ int main() {
 	
 
     float vertices[] = {
-        // Positions         // Normals
-        // Back face (the one you see first, facing -Z)
-        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-         0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-         0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+        // Positions          // Normals            // TexCoords
+        // Back face (-Z)
+        -0.5f, -0.5f, -0.5f,   0.0f,  0.0f, -1.0f,   0.0f, 0.0f,
+         0.5f, -0.5f, -0.5f,   0.0f,  0.0f, -1.0f,   1.0f, 0.0f,
+         0.5f,  0.5f, -0.5f,   0.0f,  0.0f, -1.0f,   1.0f, 1.0f,
+        -0.5f,  0.5f, -0.5f,   0.0f,  0.0f, -1.0f,   0.0f, 1.0f,
 
-        // Front face (facing +Z)
-        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-         0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+        // Front face (+Z)
+        -0.5f, -0.5f,  0.5f,   0.0f,  0.0f,  1.0f,   0.0f, 0.0f,
+         0.5f, -0.5f,  0.5f,   0.0f,  0.0f,  1.0f,   1.0f, 0.0f,
+         0.5f,  0.5f,  0.5f,   0.0f,  0.0f,  1.0f,   1.0f, 1.0f,
+        -0.5f,  0.5f,  0.5f,   0.0f,  0.0f,  1.0f,   0.0f, 1.0f,
 
-        // Left face (facing -X)
-        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+        // Left face (-X)
+        -0.5f,  0.5f,  0.5f,  -1.0f,  0.0f,  0.0f,   1.0f, 1.0f,
+        -0.5f,  0.5f, -0.5f,  -1.0f,  0.0f,  0.0f,   0.0f, 1.0f,
+        -0.5f, -0.5f, -0.5f,  -1.0f,  0.0f,  0.0f,   0.0f, 0.0f,
+        -0.5f, -0.5f,  0.5f,  -1.0f,  0.0f,  0.0f,   1.0f, 0.0f,
 
-        // Right face (facing +X)
-         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+        // Right face (+X)
+         0.5f,  0.5f,  0.5f,   1.0f,  0.0f,  0.0f,   0.0f, 1.0f,
+         0.5f,  0.5f, -0.5f,   1.0f,  0.0f,  0.0f,   1.0f, 1.0f,
+         0.5f, -0.5f, -0.5f,   1.0f,  0.0f,  0.0f,   1.0f, 0.0f,
+         0.5f, -0.5f,  0.5f,   1.0f,  0.0f,  0.0f,   0.0f, 0.0f,
 
-         // Bottom face (facing -Y)
-         -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
-          0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
-          0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
-         -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+         // Bottom face (-Y)
+         -0.5f, -0.5f, -0.5f,   0.0f, -1.0f,  0.0f,   0.0f, 1.0f,
+          0.5f, -0.5f, -0.5f,   0.0f, -1.0f,  0.0f,   1.0f, 1.0f,
+          0.5f, -0.5f,  0.5f,   0.0f, -1.0f,  0.0f,   1.0f, 0.0f,
+         -0.5f, -0.5f,  0.5f,   0.0f, -1.0f,  0.0f,   0.0f, 0.0f,
 
-         // Top face (facing +Y)
-         -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
-          0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
-          0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-         -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f
+         // Top face (+Y)
+         -0.5f,  0.5f, -0.5f,   0.0f,  1.0f,  0.0f,   0.0f, 1.0f,
+          0.5f,  0.5f, -0.5f,   0.0f,  1.0f,  0.0f,   1.0f, 1.0f,
+          0.5f,  0.5f,  0.5f,   0.0f,  1.0f,  0.0f,   1.0f, 0.0f,
+         -0.5f,  0.5f,  0.5f,   0.0f,  1.0f,  0.0f,   0.0f, 0.0f
     };
+
 
     unsigned int indices[] = {
         // Back face (vertices 0-3)
@@ -327,10 +379,12 @@ int main() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0); // position
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0); // position
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float))); // normal
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float))); // normal
     glEnableVertexAttribArray(1);
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float))); // texture coords
+	glEnableVertexAttribArray(2);
 
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPosCallback(window, mouse_callback);
@@ -342,6 +396,9 @@ int main() {
     unsigned int shader = createShaders(source.vertexShaderSource, source.fragmentShaderSource);
     unsigned int lightShader = createShaders(lightSource.vertexShaderSource, lightSource.fragmentShaderSource);
     
+    unsigned int diffuseMap = loadTexture("resources/Textures/container2.png");
+    unsigned int specularMap = loadTexture("resources/Textures/container2_specular.png");
+
 
 	glEnable(GL_DEPTH_TEST); // Enable depth testing 
 
@@ -353,6 +410,13 @@ int main() {
         glfwTerminate();
         return -1;
 	}
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    ImGui::StyleColorsDark();
+
+    ImGui_ImplGlfw_InitForOpenGL(window, true);
+    ImGui_ImplOpenGL3_Init("#version 330 core");
 
     while (!glfwWindowShouldClose(window)) {
 
@@ -361,13 +425,8 @@ int main() {
         lastFrame = currentFrame;
         processInput(window, deltaTime);
 
-        float circlePath = sin(glfwGetTime()) * sin(glfwGetTime()) +
-            cos(glfwGetTime()) * cos(glfwGetTime());
-
-        glm::vec3 lightPos(-.1f, 1.2f, 10.f * circlePath);
-
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f)); // Rotate over time
+        //model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f)); // Rotate over time
 
         glm::mat4 view = glm::lookAt(
             cameraPos,              // Position of the camera
@@ -400,9 +459,9 @@ int main() {
         GLint matShineLoc = glGetUniformLocation   (shader, "material.shininess");
 
         glUniform3f(matAmbientLoc, 0.2f, 0.2f, 0.2f);
-        glUniform3f(matDiffuseLoc, 1.0f, 0.5f, 0.31f);
-        glUniform3f(matSpecularLoc, 0.7f, 0.7f, 0.7f);
-        glUniform1f(matShineLoc, 32.0f);
+        glUniform3f(matDiffuseLoc, 0.0f, 0.f, 0.f);
+        glUniform3f(matSpecularLoc, 1.f, 1.0f, 1.0f);
+        glUniform1f(matShineLoc, 16.0f);
 
         GLint lightAmbientLoc = glGetUniformLocation (shader, "light.ambient");
         GLint lightDiffuseLoc = glGetUniformLocation (shader, "light.diffuse");
@@ -412,16 +471,22 @@ int main() {
         glUniform3f(lightDiffuseLoc, 1.0f, 1.0f, 1.0f);
         glUniform3f(lightSpecularLoc, 1.0f, 1.0f, 1.0f);
 
-
         for (int i = 0; i < 5; i++) {
             glm::mat4 model = glm::mat4(1.0f);
             model = glm::translate(model, cubePosition[i]); // Translate to the position
-            model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f)); // Rotate over time
+            //model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f)); // Rotate over time
             glUniformMatrix4fv(glGetUniformLocation(shader, "u_modal"), 1, GL_FALSE, glm::value_ptr(model));
             glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
             
         }
-    
+        
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, diffuseMap);
+
+        glActiveTexture(GL_TEXTURE1);
+        glBindTexture(GL_TEXTURE_2D, specularMap);
+
+
         glUseProgram(lightShader);
 
         glUniformMatrix4fv(glGetUniformLocation(lightShader, "u_proj"), 1, GL_FALSE, glm::value_ptr(projection));
@@ -430,8 +495,28 @@ int main() {
         glm::mat4 lightModel = glm::mat4(1.0f);
         lightModel = glm::translate(lightModel, lightPos);
         glUniformMatrix4fv(glGetUniformLocation(lightShader, "u_modal"), 1, GL_FALSE, glm::value_ptr(lightModel));
+        glUniform3fv(glGetUniformLocation(lightShader, "lightColor"), 1, glm::value_ptr(lightColor));
 
         glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+        ImGui_ImplOpenGL3_NewFrame();
+        ImGui_ImplGlfw_NewFrame();
+        ImGui::NewFrame();
+
+        // Your ImGui calls
+        ImGui::Begin("Debug");
+        ImGui::Text("Greetings, Peasant!");
+        ImGui::Begin("Shader Controls");
+
+        ImGui::SliderFloat3("Light Position", glm::value_ptr(lightPos), -10.0f, 10.0f);
+        ImGui::ColorEdit3("Light Color", glm::value_ptr(lightColor));
+
+        ImGui::End();
+
+        ImGui::End();
+
+        ImGui::Render();
+        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         //glUniform1f(glGetUniformLocation(shader, "time"), currentFrame);
         // 
@@ -441,6 +526,9 @@ int main() {
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
 
 	glDeleteShader(shader);
     glfwDestroyWindow(window);
