@@ -24,13 +24,9 @@
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
-
-float circlePath = sin(glfwGetTime()) * sin(glfwGetTime()) +
-cos(glfwGetTime()) * cos(glfwGetTime());
-
-glm::vec3 lightPos(-.1f, 1.2f, 10.f * circlePath);
+glm::vec3 lightDirection = glm::vec3(-0.2f, -1.0f, -0.3f);
 glm::vec3 lightColor(1.0f, 1.0f, 1.0f); 
-glm::vec3 objectColor(0.8f, 0.4f, 0.6f); 
+glm::vec3 lightPosition(1.0f, 1.0f, 1.0f); 
 
 static void ClearError() {
     while (glGetError() != GL_NO_ERROR);
@@ -303,69 +299,39 @@ int main() {
     };
 
     glm::vec3 cubePosition[] = {
-        glm::vec3(0.0f, 0.0f, 0.0f), // Center
-        glm::vec3(2.0f, 0.0f, 0.0f), // Right
-        glm::vec3(-2.0f, 0.0f, 0.0f), // Left
-        glm::vec3(0.0f, 2.0f, 0.0f), // Up
-        glm::vec3(0.0f, -2.0f, 0.0f) // Down
-	};
-
-    float lightVertices[] = {
-        // Positions (x, y, z) for a cube scaled to 0.1 (side length 0.2)
-        // Back face (facing -Z)
-        -0.1f, -0.1f, -0.1f, // Vertex 0
-         0.1f, -0.1f, -0.1f, // Vertex 1
-         0.1f,  0.1f, -0.1f, // Vertex 2
-        -0.1f,  0.1f, -0.1f, // Vertex 3
-
-        // Front face (facing +Z)
-        -0.1f, -0.1f,  0.1f, // Vertex 4
-         0.1f, -0.1f,  0.1f, // Vertex 5
-         0.1f,  0.1f,  0.1f, // Vertex 6
-        -0.1f,  0.1f,  0.1f, // Vertex 7
-
-        // Left face (facing -X)
-        -0.1f,  0.1f,  0.1f, // Vertex 8
-        -0.1f,  0.1f, -0.1f, // Vertex 9
-        -0.1f, -0.1f, -0.1f, // Vertex 10
-        -0.1f, -0.1f,  0.1f, // Vertex 11
-
-        // Right face (facing +X)
-         0.1f,  0.1f,  0.1f, // Vertex 12
-         0.1f,  0.1f, -0.1f, // Vertex 13
-         0.1f, -0.1f, -0.1f, // Vertex 14
-         0.1f, -0.1f,  0.1f, // Vertex 15
-
-         // Bottom face (facing -Y)
-         -0.1f, -0.1f, -0.1f, // Vertex 16
-          0.1f, -0.1f, -0.1f, // Vertex 17
-          0.1f, -0.1f,  0.1f, // Vertex 18
-         -0.1f, -0.1f,  0.1f, // Vertex 19
-
-         // Top face (facing +Y)
-         -0.1f,  0.1f, -0.1f, // Vertex 20
-          0.1f,  0.1f, -0.1f, // Vertex 21
-          0.1f,  0.1f,  0.1f, // Vertex 22
-         -0.1f,  0.1f,  0.1f  // Vertex 23
+        glm::vec3(0.0f, 0.0f, 0.0f),   // Center
+        glm::vec3(2.0f, 0.0f, 0.0f),   // Right
+        glm::vec3(-2.0f, 0.0f, 0.0f),  // Left
+        glm::vec3(0.0f, 2.0f, 0.0f),   // Up
+        glm::vec3(0.0f, -2.0f, 0.0f),  // Down
+        glm::vec3(0.0f, 0.0f, 2.0f),   // Front
+        glm::vec3(0.0f, 0.0f, -2.0f),  // Back
+        glm::vec3(2.0f, 2.0f, 0.0f),   // Right-Up
+        glm::vec3(2.0f, -2.0f, 0.0f),  // Right-Down
+        glm::vec3(-2.0f, 2.0f, 0.0f),  // Left-Up
+        glm::vec3(-2.0f, -2.0f, 0.0f), // Left-Down
+        glm::vec3(2.0f, 0.0f, 2.0f),   // Right-Front
+        glm::vec3(2.0f, 0.0f, -2.0f),  // Right-Back
+        glm::vec3(-2.0f, 0.0f, 2.0f),  // Left-Front
+        glm::vec3(-2.0f, 0.0f, -2.0f), // Left-Back
+        glm::vec3(0.0f, 2.0f, 2.0f),   // Up-Front
+        glm::vec3(0.0f, 2.0f, -2.0f),  // Up-Back
+        glm::vec3(0.0f, -2.0f, 2.0f),  // Down-Front
+        glm::vec3(0.0f, -2.0f, -2.0f), // Down-Back
+        glm::vec3(4.0f, 0.0f, 0.0f),   // Far-Right
+        glm::vec3(-4.0f, 0.0f, 0.0f),  // Far-Left
+        glm::vec3(0.0f, 4.0f, 0.0f),   // Far-Up
+        glm::vec3(0.0f, -4.0f, 0.0f),  // Far-Down
+        glm::vec3(0.0f, 0.0f, 4.0f),   // Far-Front
+        glm::vec3(0.0f, 0.0f, -4.0f),  // Far-Back
+        glm::vec3(2.0f, 2.0f, 2.0f),   // Right-Up-Front
+        glm::vec3(2.0f, 2.0f, -2.0f),  // Right-Up-Back
+        glm::vec3(-2.0f, 2.0f, 2.0f),  // Left-Up-Front
+        glm::vec3(-2.0f, 2.0f, -2.0f), // Left-Up-Back
+        glm::vec3(2.0f, -2.0f, 2.0f)   // Right-Down-Front
     };
 
     unsigned int VBO, VAO, EBO;
-    unsigned int lightVAO, lightVBO, lightEBO;  // Add separate EBO for light
-
-    glGenVertexArrays(1, &lightVAO);
-    glGenBuffers(1, &lightVBO);
-    glGenBuffers(1, &lightEBO);  // Generate separate EBO
-
-    glBindVertexArray(lightVAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, lightVBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(lightVertices), lightVertices, GL_STATIC_DRAW);
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, lightEBO);  // Use separate EBO
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
 
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
@@ -392,9 +358,7 @@ int main() {
 
     //shader parsing and loading
     ShaderProgrammerSource source = ParseShader("resources/Shaders/Basic_shader.glsl");
-    ShaderProgrammerSource lightSource= ParseShader("resources/Shaders/bulb_shader.glsl");
     unsigned int shader = createShaders(source.vertexShaderSource, source.fragmentShaderSource);
-    unsigned int lightShader = createShaders(lightSource.vertexShaderSource, lightSource.fragmentShaderSource);
     
     unsigned int diffuseMap = loadTexture("resources/Textures/container2.png");
     unsigned int specularMap = loadTexture("resources/Textures/container2_specular.png");
@@ -426,7 +390,6 @@ int main() {
         processInput(window, deltaTime);
 
         glm::mat4 model = glm::mat4(1.0f);
-        //model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f)); // Rotate over time
 
         glm::mat4 view = glm::lookAt(
             cameraPos,              // Position of the camera
@@ -447,9 +410,7 @@ int main() {
 
         glUniformMatrix4fv(glGetUniformLocation(shader, "u_proj"), 1, GL_FALSE, glm::value_ptr(projection));
 		glUniformMatrix4fv(glGetUniformLocation(shader, "u_view"), 1, GL_FALSE, glm::value_ptr(view));
-        lightPos.x = sin(glfwGetTime()) * 2.0f;
-        lightPos.z = cos(glfwGetTime()) * 2.0f;
-        glUniform3fv(glGetUniformLocation(shader, "light.position"), 1, glm::value_ptr(lightPos));
+
         glUniform3fv(glGetUniformLocation(shader, "cameraPos"), 1, glm::value_ptr(cameraPos));
 
         GLint matAmbientLoc = glGetUniformLocation (shader, "material.ambient");
@@ -460,16 +421,27 @@ int main() {
         glUniform3f(matAmbientLoc, 0.2f, 0.2f, 0.2f);
         glUniform1f(matShineLoc, 16.0f);
 
+		GLint lightPositionLoc = glGetUniformLocation(shader, "light.position");
+		GLint lightDirectionLoc = glGetUniformLocation(shader, "light.direction");
         GLint lightAmbientLoc = glGetUniformLocation (shader, "light.ambient");
         GLint lightDiffuseLoc = glGetUniformLocation (shader, "light.diffuse");
         GLint lightSpecularLoc = glGetUniformLocation(shader, "light.specular");
 		GLint lightColorLoc = glGetUniformLocation(shader, "light.color");
+		GLint lightCutoffLoc = glGetUniformLocation(shader, "light.cutoff");
 
+		glUniform3f(lightPositionLoc, cameraPos.x, cameraPos.y, cameraPos.z);
         glUniform3f(lightAmbientLoc, 0.2f, 0.2f, 0.2f);
         glUniform3f(lightDiffuseLoc, 1.0f, 1.0f, 1.0f);
         glUniform3f(lightSpecularLoc, 1.0f, 1.0f, 1.0f);
 		glUniform3f(lightColorLoc, lightColor.x, lightColor.y, lightColor.z);
+		glUniform3f(lightDirectionLoc, cameraFront.x, cameraFront.y, cameraFront.z);
+        glUniform1f(glGetUniformLocation(shader, "light.constant"), 1.0f);
+		glUniform1f(glGetUniformLocation(shader, "light.linear"), 0.09);
+		glUniform1f(glGetUniformLocation(shader, "light.quadratic"), 0.032);
 
+        glUniform1f(lightCutoffLoc, glm::cos(glm::radians(15.0f))); 
+		glUniform1f(glGetUniformLocation(shader, "light.outerCutoff"), glm::cos(glm::radians(20.0f)));
+		glUniform1f(glGetUniformLocation(shader, "light.exponent"), 2.0f);
 
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, diffuseMap);
@@ -477,10 +449,10 @@ int main() {
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, specularMap);
 
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 30; i++) {
             glm::mat4 model = glm::mat4(1.0f);
             model = glm::translate(model, cubePosition[i]); // Translate to the position
-            //model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f)); // Rotate over time
+            //model = glm::rotate(model, 0.5f*(float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f)); // Rotate over time
             glUniformMatrix4fv(glGetUniformLocation(shader, "u_modal"), 1, GL_FALSE, glm::value_ptr(model));
             glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
             
@@ -489,33 +461,16 @@ int main() {
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
-        // Your ImGui calls
-        ImGui::Begin("Debug");
-        ImGui::Text("Greetings, Peasant!");
         ImGui::Begin("Shader Controls");
 
-        ImGui::SliderFloat3("Light Position", glm::value_ptr(lightPos), -10.0f, 10.0f);
         ImGui::ColorEdit3("Light Color", glm::value_ptr(lightColor));
-
-        ImGui::End();
 
         ImGui::End();
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        glUseProgram(lightShader);
-
-        glUniformMatrix4fv(glGetUniformLocation(lightShader, "u_proj"), 1, GL_FALSE, glm::value_ptr(projection));
-        glUniformMatrix4fv(glGetUniformLocation(lightShader, "u_view"), 1, GL_FALSE, glm::value_ptr(view));
-
-        glm::mat4 lightModel = glm::mat4(1.0f);
-        lightModel = glm::translate(lightModel, lightPos);
-        glUniformMatrix4fv(glGetUniformLocation(lightShader, "u_modal"), 1, GL_FALSE, glm::value_ptr(lightModel));
-        glUniform3fv(glGetUniformLocation(lightShader, "lightColor"), 1, glm::value_ptr(lightColor));
 
         glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-
-
 
         //glUniform1f(glGetUniformLocation(shader, "time"), currentFrame);
         // 
