@@ -124,6 +124,159 @@ float fov = 45.0f;
 bool cameraMode = true; //for togglinr camera control and mouse cursor visibility
 float lastFrame = 0.0f;
 
+glm::vec3 pointLightPositions[] = {
+    glm::vec3(0.7f,  0.2f,  2.0f),
+    glm::vec3(2.3f, -3.3f, -4.0f),
+    glm::vec3(-4.0f,  2.0f, -12.0f),
+    glm::vec3(0.0f,  0.0f, -3.0f)
+};
+
+
+glm::vec3 pointLightColors[] = {
+    glm::vec3(1.0f, 0.6f, 0.0f),  // Orange
+    glm::vec3(1.0f, 0.0f, 0.0f),  // Red
+    glm::vec3(1.0f, 1.0f, 0.0f),  // Yellow
+    glm::vec3(0.2f, 0.2f, 1.0f)   // Blue
+};
+
+
+struct MultipleLightUniforms {
+
+    GLint u_model;
+    GLint u_view;
+    GLint u_proj;
+
+    // Material
+    GLint materialDiffuse;
+    GLint materialSpecular;
+    GLint materialShininess;
+
+    // View position
+    GLint viewPos;
+
+    // Directional light
+    GLint dirLightDirection;
+    GLint dirLightAmbient;
+    GLint dirLightDiffuse;
+    GLint dirLightSpecular;
+
+    // Point lights array
+    GLint pointLightPosition[4];
+    GLint pointLightConstant[4];
+    GLint pointLightLinear[4];
+    GLint pointLightQuadratic[4];
+    GLint pointLightAmbient[4];
+    GLint pointLightDiffuse[4];
+    GLint pointLightSpecular[4];
+
+    // Spotlight
+    GLint spotLightPosition;
+    GLint spotLightDirection;
+    GLint spotLightCutOff;
+    GLint spotLightOuterCutOff;
+    GLint spotLightConstant;
+    GLint spotLightLinear;
+    GLint spotLightQuadratic;
+    GLint spotLightAmbient;
+    GLint spotLightDiffuse;
+    GLint spotLightSpecular;
+};
+
+
+MultipleLightUniforms initMultipleLightUniforms(unsigned int shaderProgram) {
+    MultipleLightUniforms uniforms;
+
+    uniforms.u_model = glGetUniformLocation(shaderProgram, "u_model");
+    uniforms.u_view = glGetUniformLocation(shaderProgram, "u_view");
+    uniforms.u_proj = glGetUniformLocation(shaderProgram, "u_proj");
+
+
+    // Material uniforms
+    uniforms.materialDiffuse = glGetUniformLocation(shaderProgram, "material.diffuse");
+    uniforms.materialSpecular = glGetUniformLocation(shaderProgram, "material.specular");
+    uniforms.materialShininess = glGetUniformLocation(shaderProgram, "material.shininess");
+
+    // View position
+    uniforms.viewPos = glGetUniformLocation(shaderProgram, "viewPos");
+
+    // Directional light
+    uniforms.dirLightDirection = glGetUniformLocation(shaderProgram, "dirLight.direction");
+    uniforms.dirLightAmbient = glGetUniformLocation(shaderProgram, "dirLight.ambient");
+    uniforms.dirLightDiffuse = glGetUniformLocation(shaderProgram, "dirLight.diffuse");
+    uniforms.dirLightSpecular = glGetUniformLocation(shaderProgram, "dirLight.specular");
+
+    // Point lights (array indexing)
+    for (int i = 0; i < 4; i++) {
+        std::string number = std::to_string(i);
+        uniforms.pointLightPosition[i] = glGetUniformLocation(shaderProgram, ("pointLights[" + number + "].position").c_str());
+        uniforms.pointLightConstant[i] = glGetUniformLocation(shaderProgram, ("pointLights[" + number + "].constant").c_str());
+        uniforms.pointLightLinear[i] = glGetUniformLocation(shaderProgram, ("pointLights[" + number + "].linear").c_str());
+        uniforms.pointLightQuadratic[i] = glGetUniformLocation(shaderProgram, ("pointLights[" + number + "].quadratic").c_str());
+        uniforms.pointLightAmbient[i] = glGetUniformLocation(shaderProgram, ("pointLights[" + number + "].ambient").c_str());
+        uniforms.pointLightDiffuse[i] = glGetUniformLocation(shaderProgram, ("pointLights[" + number + "].diffuse").c_str());
+        uniforms.pointLightSpecular[i] = glGetUniformLocation(shaderProgram, ("pointLights[" + number + "].specular").c_str());
+    }
+
+    // Spotlight
+    uniforms.spotLightPosition = glGetUniformLocation(shaderProgram, "spotLight.position");
+    uniforms.spotLightDirection = glGetUniformLocation(shaderProgram, "spotLight.direction");
+    uniforms.spotLightCutOff = glGetUniformLocation(shaderProgram, "spotLight.cutOff");
+    uniforms.spotLightOuterCutOff = glGetUniformLocation(shaderProgram, "spotLight.outerCutOff");
+    uniforms.spotLightConstant = glGetUniformLocation(shaderProgram, "spotLight.constant");
+    uniforms.spotLightLinear = glGetUniformLocation(shaderProgram, "spotLight.linear");
+    uniforms.spotLightQuadratic = glGetUniformLocation(shaderProgram, "spotLight.quadratic");
+    uniforms.spotLightAmbient = glGetUniformLocation(shaderProgram, "spotLight.ambient");
+    uniforms.spotLightDiffuse = glGetUniformLocation(shaderProgram, "spotLight.diffuse");
+    uniforms.spotLightSpecular = glGetUniformLocation(shaderProgram, "spotLight.specular");
+
+    return uniforms;
+}
+
+void setLightUniforms(const MultipleLightUniforms& uniforms,
+    const glm::vec3& cameraPos,
+    const glm::vec3& cameraFront) {
+
+    // Material properties
+    glUniform1i(uniforms.materialDiffuse, 0);
+    glUniform1i(uniforms.materialSpecular, 1);
+    glUniform1f(uniforms.materialShininess, 32.0f);
+
+    // View position
+    glUniform3fv(uniforms.viewPos, 1, glm::value_ptr(cameraPos));
+
+    // Directional light (sun-like light from above)
+    glUniform3f(uniforms.dirLightDirection, -0.2f, -1.0f, -0.3f);
+    glUniform3f(uniforms.dirLightAmbient, 0.05f, 0.05f, 0.05f);
+    glUniform3f(uniforms.dirLightDiffuse, 0.4f, 0.4f, 0.4f);
+    glUniform3f(uniforms.dirLightSpecular, 0.5f, 0.5f, 0.5f);
+
+    // Point lights
+    for (int i = 0; i < 4; i++) {
+        glUniform3fv(uniforms.pointLightPosition[i], 1, glm::value_ptr(pointLightPositions[i]));
+        glUniform1f(uniforms.pointLightConstant[i], 1.0f);
+        glUniform1f(uniforms.pointLightLinear[i], 0.09f);
+        glUniform1f(uniforms.pointLightQuadratic[i], 0.032f);
+
+        // Use different colors for variety
+        glm::vec3 color = pointLightColors[i];
+        glUniform3f(uniforms.pointLightAmbient[i], color.x * 0.1f, color.y * 0.1f, color.z * 0.1f);
+        glUniform3f(uniforms.pointLightDiffuse[i], color.x, color.y, color.z);
+        glUniform3f(uniforms.pointLightSpecular[i], 1.0f, 1.0f, 1.0f);
+    }
+
+    // Spotlight (flashlight attached to camera)
+    glUniform3fv(uniforms.spotLightPosition, 1, glm::value_ptr(cameraPos));
+    glUniform3fv(uniforms.spotLightDirection, 1, glm::value_ptr(cameraFront));
+    glUniform1f(uniforms.spotLightCutOff, glm::cos(glm::radians(12.5f)));
+    glUniform1f(uniforms.spotLightOuterCutOff, glm::cos(glm::radians(15.0f)));
+    glUniform1f(uniforms.spotLightConstant, 1.0f);
+    glUniform1f(uniforms.spotLightLinear, 0.09f);
+    glUniform1f(uniforms.spotLightQuadratic, 0.032f);
+    glUniform3f(uniforms.spotLightAmbient, 0.0f, 0.0f, 0.0f);
+    glUniform3f(uniforms.spotLightDiffuse, 1.0f, 1.0f, 1.0f);
+    glUniform3f(uniforms.spotLightSpecular, 1.0f, 1.0f, 1.0f);
+}
+
 void mouse_callback(GLFWwindow* window, double xpos, double ypos) {
     if (!cameraMode) {
         return;
@@ -227,7 +380,7 @@ int main() {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 
-    GLFWwindow* window = glfwCreateWindow(800, 600, "OpenGL Window", nullptr, nullptr);
+    GLFWwindow* window = glfwCreateWindow(1920, 1080    , "OpenGL Window", nullptr, nullptr);
     if (!window) {
         std::cerr << "Failed to create GLFW window\n";
         glfwTerminate();
@@ -355,25 +508,34 @@ int main() {
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
     glfwSetCursorPosCallback(window, mouse_callback);
 
-
     //shader parsing and loading
     ShaderProgrammerSource source = ParseShader("resources/Shaders/Basic_shader.glsl");
     unsigned int shader = createShaders(source.vertexShaderSource, source.fragmentShaderSource);
-    
+
+    ShaderProgrammerSource lightSourceSource = ParseShader("resources/Shaders/bulb_shader.glsl");
+    unsigned int lightShader = createShaders(lightSourceSource.vertexShaderSource, lightSourceSource.fragmentShaderSource);
+
+    MultipleLightUniforms uniforms = initMultipleLightUniforms(shader); // Cache all locations
     unsigned int diffuseMap = loadTexture("resources/Textures/container2.png");
     unsigned int specularMap = loadTexture("resources/Textures/container2_specular.png");
 
+    glEnable(GL_DEPTH_TEST); // Enable depth testing 
 
-	glEnable(GL_DEPTH_TEST); // Enable depth testing 
+    GLint lightCubeModelLoc = glGetUniformLocation(lightShader, "u_model");
+    GLint lightCubeViewLoc = glGetUniformLocation(lightShader, "u_view");
+    GLint lightCubeProjLoc = glGetUniformLocation(lightShader, "u_proj");
+    GLint lightCubeColorLoc = glGetUniformLocation(lightShader, "lightColor");
 
-	//int location = glGetUniformLocation(shader, "color");
- //   int timeLocation = glGetUniformLocation(shader, "time");
     if (shader == 0) {
         std::cerr << "Failed to create shader program\n";
         glfwDestroyWindow(window);
         glfwTerminate();
         return -1;
-	}
+    }
+
+    GLuint timerQuery;
+    glGenQueries(1, &timerQuery);
+
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGuiIO& io = ImGui::GetIO(); (void)io;
@@ -381,6 +543,25 @@ int main() {
 
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330 core");
+    GLuint64 elapsed_time;
+
+    // Add this BEFORE your render loop to check if shaders compiled
+    if (shader == 0) {
+        std::cerr << "Main lighting shader failed to compile!" << std::endl;
+        return -1;
+    }
+    if (lightShader == 0) {
+        std::cerr << "Light cube shader failed to compile!" << std::endl;
+        return -1;
+    }
+
+    // Add this to check if textures loaded
+    std::cout << "Diffuse texture ID: " << diffuseMap << std::endl;
+    std::cout << "Specular texture ID: " << specularMap << std::endl;
+
+    // Check if uniform locations are valid
+    std::cout << "Material diffuse location: " << uniforms.materialDiffuse << std::endl;
+    std::cout << "Light cube model location: " << lightCubeModelLoc << std::endl;
 
     while (!glfwWindowShouldClose(window)) {
 
@@ -388,8 +569,6 @@ int main() {
         float deltaTime = currentFrame - lastFrame;
         lastFrame = currentFrame;
         processInput(window, deltaTime);
-
-        glm::mat4 model = glm::mat4(1.0f);
 
         glm::mat4 view = glm::lookAt(
             cameraPos,              // Position of the camera
@@ -401,85 +580,104 @@ int main() {
             (float)800 / (float)600,
             0.1f, 100.0f);
 
-        
+        glBeginQuery(GL_TIME_ELAPSED, timerQuery);
 
-        //glClearColor(0.2f, 0.3f, 0.3f, 1.0f); // Teal
-		glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Dark background
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Dark background
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        // ==========================================
+        // RENDER TEXTURED CUBES WITH LIGHTING
+        // ==========================================
         glUseProgram(shader);
 
-        glUniformMatrix4fv(glGetUniformLocation(shader, "u_proj"), 1, GL_FALSE, glm::value_ptr(projection));
-		glUniformMatrix4fv(glGetUniformLocation(shader, "u_view"), 1, GL_FALSE, glm::value_ptr(view));
+        GLint diffuseLoc = glGetUniformLocation(shader, "material.diffuse");
+        GLint specularLoc = glGetUniformLocation(shader, "material.specular");
+        GLint texDiffuseLoc = glGetUniformLocation(shader, "texture_diffuse1"); // Common alternative name
+        GLint texSpecLoc = glGetUniformLocation(shader, "texture_specular1");   // Common alternative name
 
-        glUniform3fv(glGetUniformLocation(shader, "cameraPos"), 1, glm::value_ptr(cameraPos));
+        std::cout << "material.diffuse location: " << diffuseLoc << std::endl;
+        std::cout << "material.specular location: " << specularLoc << std::endl;
+        std::cout << "texture_diffuse1 location: " << texDiffuseLoc << std::endl;
+        std::cout << "texture_specular1 location: " << texSpecLoc << std::endl;
 
-        GLint matAmbientLoc = glGetUniformLocation (shader, "material.ambient");
-        glUniform1i(glGetUniformLocation(shader, "material.diffuse"), 0); // GL_TEXTURE0
-        glUniform1i(glGetUniformLocation(shader, "material.specular"), 1); // GL_TEXTURE1
-        GLint matShineLoc = glGetUniformLocation   (shader, "material.shininess");
+        glBindVertexArray(VAO);
 
-        glUniform3f(matAmbientLoc, 0.2f, 0.2f, 0.2f);
-        glUniform1f(matShineLoc, 16.0f);
+        // Set matrices for lighting shader
+        glUniformMatrix4fv(uniforms.u_proj, 1, GL_FALSE, glm::value_ptr(projection));
+        glUniformMatrix4fv(uniforms.u_view, 1, GL_FALSE, glm::value_ptr(view));
 
-		GLint lightPositionLoc = glGetUniformLocation(shader, "light.position");
-		GLint lightDirectionLoc = glGetUniformLocation(shader, "light.direction");
-        GLint lightAmbientLoc = glGetUniformLocation (shader, "light.ambient");
-        GLint lightDiffuseLoc = glGetUniformLocation (shader, "light.diffuse");
-        GLint lightSpecularLoc = glGetUniformLocation(shader, "light.specular");
-		GLint lightColorLoc = glGetUniformLocation(shader, "light.color");
-		GLint lightCutoffLoc = glGetUniformLocation(shader, "light.cutoff");
+        // Set all lighting uniforms
+        setLightUniforms(uniforms, cameraPos, cameraFront);
 
-		glUniform3f(lightPositionLoc, cameraPos.x, cameraPos.y, cameraPos.z);
-        glUniform3f(lightAmbientLoc, 0.2f, 0.2f, 0.2f);
-        glUniform3f(lightDiffuseLoc, 1.0f, 1.0f, 1.0f);
-        glUniform3f(lightSpecularLoc, 1.0f, 1.0f, 1.0f);
-		glUniform3f(lightColorLoc, lightColor.x, lightColor.y, lightColor.z);
-		glUniform3f(lightDirectionLoc, cameraFront.x, cameraFront.y, cameraFront.z);
-        glUniform1f(glGetUniformLocation(shader, "light.constant"), 1.0f);
-		glUniform1f(glGetUniformLocation(shader, "light.linear"), 0.09);
-		glUniform1f(glGetUniformLocation(shader, "light.quadratic"), 0.032);
-
-        glUniform1f(lightCutoffLoc, glm::cos(glm::radians(15.0f))); 
-		glUniform1f(glGetUniformLocation(shader, "light.outerCutoff"), glm::cos(glm::radians(20.0f)));
-		glUniform1f(glGetUniformLocation(shader, "light.exponent"), 2.0f);
-
+        // Bind textures
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, diffuseMap);
-
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, specularMap);
 
+        // Render all textured cubes
         for (int i = 0; i < 30; i++) {
             glm::mat4 model = glm::mat4(1.0f);
             model = glm::translate(model, cubePosition[i]); // Translate to the position
-            //model = glm::rotate(model, 0.5f*(float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f)); // Rotate over time
-            glUniformMatrix4fv(glGetUniformLocation(shader, "u_modal"), 1, GL_FALSE, glm::value_ptr(model));
+            model = glm::rotate(model, 0.5f*(float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f)); // Rotate over time
+            glUniformMatrix4fv(glGetUniformLocation(shader, "u_model"), 1, GL_FALSE, glm::value_ptr(model));
             glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-            
         }
+
+        // ==========================================
+        // RENDER LIGHT CUBES (SOLID COLORS)
+        // ==========================================
+        glUseProgram(lightShader);
+        glBindVertexArray(VAO); // Same VAO, different shader
+
+        // Set matrices for light cube shader
+        glUniformMatrix4fv(lightCubeProjLoc, 1, GL_FALSE, glm::value_ptr(projection));
+        glUniformMatrix4fv(lightCubeViewLoc, 1, GL_FALSE, glm::value_ptr(view));
+
+        // Render each point light as a small colored cube
+        for (int i = 0; i < 4; i++) {
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::translate(model, pointLightPositions[i]);
+            model = glm::scale(model, glm::vec3(0.2f)); // Make light cubes smaller
+
+            glUniformMatrix4fv(lightCubeModelLoc, 1, GL_FALSE, glm::value_ptr(model));
+            glUniform3fv(lightCubeColorLoc, 1, glm::value_ptr(pointLightColors[i]));
+
+            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0); // Same EBO
+        }
+
+        // ==========================================
+        // IMGUI
+        // ==========================================
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
 
         ImGui::Begin("Shader Controls");
-
         ImGui::ColorEdit3("Light Color", glm::value_ptr(lightColor));
+
+        // Add spotlight controls
+        static float cutoffAngle = 12.5f;
+        static float outerCutoffAngle = 15.0f;
+        ImGui::SliderFloat("Spotlight Inner Cutoff", &cutoffAngle, 5.0f, 25.0f);
+        ImGui::SliderFloat("Spotlight Outer Cutoff", &outerCutoffAngle, cutoffAngle + 1.0f, 30.0f);
+
+        // Update spotlight uniforms in real-time
+        glUseProgram(shader);
+        glUniform1f(glGetUniformLocation(shader, "spotLight.cutOff"), glm::cos(glm::radians(cutoffAngle)));
+        glUniform1f(glGetUniformLocation(shader, "spotLight.outerCutOff"), glm::cos(glm::radians(outerCutoffAngle)));
 
         ImGui::End();
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-        glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
-
-        //glUniform1f(glGetUniformLocation(shader, "time"), currentFrame);
-        // 
-        //glUniform1f(timeLocation, currentFrame);
-        //glUniform3f(location, 1.0f, 0.f, 0.f);
+        glEndQuery(GL_TIME_ELAPSED);
+        glGetQueryObjectui64v(timerQuery, GL_QUERY_RESULT, &elapsed_time);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
-    }
+    }   
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
