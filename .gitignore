@@ -1,0 +1,8 @@
+*.vcxproj.*
+imconfig*
+imstb*
+imgui*
+assimpRelease
+x64
+.vs
+GLRebirth.*
