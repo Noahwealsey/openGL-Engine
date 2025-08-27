@@ -1,4 +1,7 @@
 *.vcxproj.*
+imgui*
+imconfig.h
+imstb*
 x64
 .vs
 GLRebirth.*
