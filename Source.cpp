@@ -6,6 +6,34 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <vector>
+#include <algorithm>
+
+int getSelectedCube(const glm::vec3 *cubePositions, int numCubes, int screenWidth, int screenHeight, const glm::mat4 &view, const glm::mat4 &projection, const Camera &camera) {
+    
+    std::vector<std::pair<float, int>> candidate;
+    int threshold = 50; 
+
+    glm::vec2 screenCenter(screenWidth/ 2.0f, screenHeight/ 2.0f);
+    for (int i = 0; i < numCubes; i++) {
+		glm::vec4 clipSpacePos = projection * view * glm::vec4(cubePositions[i], 1.0f);
+		if (clipSpacePos.w <= 0) continue; // Skip if behind the camera
+		glm::vec3 ndcPos = glm::vec3(clipSpacePos) / clipSpacePos.w;
+        glm::vec2 screenPos = glm::vec2((ndcPos.x + 1.0f) * 0.5f * screenWidth, (ndcPos.y + 1.0f) * 0.5f * screenHeight);
+		float distance = glm::length(screenPos - screenCenter);
+        if (distance < threshold) {
+			float depth = glm::length(camera.GetPosition() - cubePositions[i]);
+			candidate.emplace_back(depth, i);
+        }
+
+    }
+    
+    if (candidate.empty()) return -1;
+
+	std::sort(candidate.begin(), candidate.end());
+	return candidate.front().second;
+
+}
 
 int main() {
     if (!Renderer::Initialize()) {
@@ -23,10 +51,11 @@ int main() {
     });
 
     // Load shaders
-    Shader lightingShader("resources/Shaders/Basic_shader.glsl");
+    Shader CubeShader("resources/Shaders/Basic_shader.glsl");
     Shader lightCubeShader("resources/Shaders/bulb_shader.glsl");
+	Shader OutlineShader("resources/Shaders/outline.glsl");
 
-    if (!lightingShader.IsValid() || !lightCubeShader.IsValid()) {
+    if (!CubeShader.IsValid() || !lightCubeShader.IsValid()) {
         std::cerr << "Failed to load shaders!" << std::endl;
         return -1;
     }
@@ -37,7 +66,7 @@ int main() {
 
     // Initialize lighting system
     Lighting lighting;
-    MultipleLightUniforms uniforms = lighting.InitializeUniforms(lightingShader.GetID());
+    MultipleLightUniforms uniforms = lighting.InitializeUniforms(CubeShader.GetID());
 
     // Set up cube data
     float vertices[] = {
@@ -132,6 +161,7 @@ int main() {
 
     // Enable depth testing
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_STENCIL_TEST);
 
     // Setup ImGui
     Renderer::InitializeImGui();
@@ -143,6 +173,7 @@ int main() {
 
     float lastFrame = 0.0f;
     
+    // Main render loop
     // Main render loop
     while (!glfwWindowShouldClose(window)) {
         float currentFrame = glfwGetTime();
@@ -157,41 +188,91 @@ int main() {
 
         // Clear
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
         // Get view and projection matrices
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
 
-        // ==========================================
-        // RENDER TEXTURED CUBES WITH LIGHTING
-        // ==========================================
-        lightingShader.Use();
-        glBindVertexArray(VAO);
+        int selectedCube = getSelectedCube(cubePositions, 30, 1920, 1080, view, projection, camera);
+        if (selectedCube != -1) {
+            // **First Pass: Render Cubes and Write to Stencil Buffer**
+            glStencilFunc(GL_ALWAYS, 1, 0xFF); // All fragments update the stencil buffer
+            glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE); // Set stencil value to 1 where drawn
+            glStencilMask(0xFF); // Enable writing to the stencil buffer
+            glEnable(GL_DEPTH_TEST); // Ensure depth testing is enabled
 
-        // Set matrices
-        lightingShader.SetMatrix4("u_view", view);
-        lightingShader.SetMatrix4("u_proj", projection);
+            CubeShader.Use();
+            glBindVertexArray(VAO);
+
+            // Set matrices
+            CubeShader.SetMatrix4("u_view", view);
+            CubeShader.SetMatrix4("u_proj", projection);
+
+            lighting.SetLightUniforms(uniforms, camera.GetPosition(), camera.GetFront());
+
+            // Bind textures
+            diffuseMap.Bind(0);
+            specularMap.Bind(1);
+
+            glm::mat4 model = glm::mat4(1.0f);
+            model = glm::translate(model, cubePositions[selectedCube]);
+            model = glm::rotate(model, 0.5f * (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
+            CubeShader.SetMatrix4("u_model", model);
+            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+        }
+
+        // **Second Pass: Render Outlines**
+        glStencilFunc(GL_ALWAYS, 0, 0xFF); // Pass test if stencil value is not 1
+        glStencilMask(0x00); // Disable writing to the stencil buffer
+        glEnable(GL_DEPTH_TEST); // Disable depth testing for outline
+
+
+        CubeShader.Use();
+        glBindVertexArray(VAO);
+        CubeShader.SetMatrix4("u_view", view);
+        CubeShader.SetMatrix4("u_proj", projection);
 
         // Set lighting uniforms
         lighting.SetLightUniforms(uniforms, camera.GetPosition(), camera.GetFront());
 
-        // Bind textures
         diffuseMap.Bind(0);
         specularMap.Bind(1);
 
-        // Render all textured cubes
         for (int i = 0; i < 30; i++) {
+            if (i == selectedCube) continue;
             glm::mat4 model = glm::mat4(1.0f);
             model = glm::translate(model, cubePositions[i]);
-            model = glm::rotate(model, 0.5f * (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
-            lightingShader.SetMatrix4("u_model", model);
+            CubeShader.SetMatrix4("u_model", model);
             glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
         }
 
-        // ==========================================
-        // RENDER LIGHT CUBES
-        // ==========================================
+        // Render scaled cubes for outline
+        if (selectedCube != -1){
+            glStencilFunc(GL_NOTEQUAL, 1, 0xff);
+			glStencilMask(0x00);
+			glDisable(GL_DEPTH_TEST);
+			OutlineShader.Use();
+			OutlineShader.SetMatrix4("u_view", view);
+			OutlineShader.SetMatrix4("u_proj", projection);
+			OutlineShader.SetFloat("u_time", glfwGetTime());
+			glm::mat4 model = glm::mat4(1.0f);
+            float scale = 1.01f; // Scale factor for the outline
+			model = glm::translate(model, cubePositions[selectedCube]);
+			model = glm::scale(model, glm::vec3(scale)); // Scale the model matrix
+			model = glm::rotate(model, 0.5f * (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
+			OutlineShader.SetMatrix4("u_model", model);
+			glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+        }
+
+        // Reset stencil and depth state
+        glStencilMask(0xFF); // Re-enable stencil writing
+        glStencilFunc(GL_ALWAYS, 0, 0xFF); // Reset stencil test
+        glEnable(GL_DEPTH_TEST); // Re-enable depth testing
+
+        // **Render Light Cubes**
         lightCubeShader.Use();
         lightCubeShader.SetMatrix4("u_view", view);
         lightCubeShader.SetMatrix4("u_proj", projection);
@@ -199,12 +280,11 @@ int main() {
         // Render point lights as colored cubes
         const auto& lightPositions = lighting.GetPointLightPositions();
         const auto& lightColors = lighting.GetPointLightColors();
-        
+
         for (int i = 0; i < 4; i++) {
             glm::mat4 model = glm::mat4(1.0f);
-            model = glm::translate(model, lightPositions[i]);
             model = glm::scale(model, glm::vec3(0.2f));
-            
+            model = glm::translate(model, lightPositions[i]);
             lightCubeShader.SetMatrix4("u_model", model);
             lightCubeShader.SetVec3("lightColor", lightColors[i]);
             glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
@@ -214,9 +294,9 @@ int main() {
         // IMGUI
         // ==========================================
         Renderer::BeginImGuiFrame();
-        
+
         ImGui::Begin("Shader Controls");
-        
+
         // Light controls
         static glm::vec3 lightColor(1.0f, 1.0f, 1.0f);
         ImGui::ColorEdit3("Light Color", glm::value_ptr(lightColor));
@@ -225,10 +305,10 @@ int main() {
         static float cutoffAngle = 12.5f;
         static float outerCutoffAngle = 15.0f;
         if (ImGui::SliderFloat("Spotlight Inner Cutoff", &cutoffAngle, 5.0f, 25.0f)) {
-            lighting.UpdateSpotlightCutoff(lightingShader.GetID(), cutoffAngle, outerCutoffAngle);
+            lighting.UpdateSpotlightCutoff(CubeShader.GetID(), cutoffAngle, outerCutoffAngle);
         }
         if (ImGui::SliderFloat("Spotlight Outer Cutoff", &outerCutoffAngle, cutoffAngle + 1.0f, 30.0f)) {
-            lighting.UpdateSpotlightCutoff(lightingShader.GetID(), cutoffAngle, outerCutoffAngle);
+            lighting.UpdateSpotlightCutoff(CubeShader.GetID(), cutoffAngle, outerCutoffAngle);
         }
 
         ImGui::End();
