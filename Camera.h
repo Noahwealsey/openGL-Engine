@@ -40,6 +40,11 @@ private:
     glm::vec3 m_right;
     glm::vec3 m_worldUp;
 
+    float gravity = 9.81f;
+    float groundLevel = 1.0f;
+    float verticalSpeed = 0.0f;
+    float onGround = true;
+
     // Euler angles
     float m_yaw;
     float m_pitch;

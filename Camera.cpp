@@ -23,8 +23,22 @@ glm::mat4 Camera::GetViewMatrix() const {
 }
 
 void Camera::ProcessKeyboard(GLFWwindow* window, float deltaTime) {
-    float velocity = m_movementSpeed * deltaTime;
 
+    float speedMultiplier = 1.0f;
+
+
+    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
+        speedMultiplier = 2.0f;
+    }
+    float velocity = m_movementSpeed * speedMultiplier*deltaTime;
+
+	verticalSpeed -= gravity * deltaTime;
+    
+
+    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS && onGround) {
+		verticalSpeed = 5.0f; // Jump impulse
+        onGround = false;
+    }
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         m_position += m_front * velocity;
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
@@ -33,11 +47,15 @@ void Camera::ProcessKeyboard(GLFWwindow* window, float deltaTime) {
         m_position -= m_right * velocity;
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         m_position += m_right * velocity;
-    if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS)
-        m_position.y += velocity;
-    if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
-        m_position.y -= velocity;
-
+	m_position.y += verticalSpeed * deltaTime;
+    if (!onGround) {
+        verticalSpeed -= gravity * deltaTime;
+    }
+    if (m_position.y <= groundLevel) {
+        m_position.y = groundLevel; // Prevent falling below ground
+		verticalSpeed = 0.0f;
+		onGround = true;
+    }
     // Toggle camera mode with TAB
     if (glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS) {
         m_cameraMode = !m_cameraMode;

@@ -107,7 +107,6 @@ int main() {
           0.5f,  0.5f,  0.5f,   0.0f,  1.0f,  0.0f,   1.0f, 0.0f,
          -0.5f,  0.5f,  0.5f,   0.0f,  1.0f,  0.0f,   0.0f, 0.0f
     };
-
     unsigned int indices[] = {
         // Back face (vertices 0-3)
         0, 1, 2,   2, 3, 0,
@@ -123,18 +122,30 @@ int main() {
         20, 21, 22, 22, 23, 20
     };
 
-    glm::vec3 cubePositions[] = {
-        glm::vec3(0.0f, 0.0f, 0.0f),   glm::vec3(2.0f, 0.0f, 0.0f),   glm::vec3(-2.0f, 0.0f, 0.0f),
-        glm::vec3(0.0f, 2.0f, 0.0f),   glm::vec3(0.0f, -2.0f, 0.0f),  glm::vec3(0.0f, 0.0f, 2.0f),
-        glm::vec3(0.0f, 0.0f, -2.0f),  glm::vec3(2.0f, 2.0f, 0.0f),   glm::vec3(2.0f, -2.0f, 0.0f),
-        glm::vec3(-2.0f, 2.0f, 0.0f),  glm::vec3(-2.0f, -2.0f, 0.0f), glm::vec3(2.0f, 0.0f, 2.0f),
-        glm::vec3(2.0f, 0.0f, -2.0f),  glm::vec3(-2.0f, 0.0f, 2.0f),  glm::vec3(-2.0f, 0.0f, -2.0f),
-        glm::vec3(0.0f, 2.0f, 2.0f),   glm::vec3(0.0f, 2.0f, -2.0f),  glm::vec3(0.0f, -2.0f, 2.0f),
-        glm::vec3(0.0f, -2.0f, -2.0f), glm::vec3(4.0f, 0.0f, 0.0f),   glm::vec3(-4.0f, 0.0f, 0.0f),
-        glm::vec3(0.0f, 4.0f, 0.0f),   glm::vec3(0.0f, -4.0f, 0.0f),  glm::vec3(0.0f, 0.0f, 4.0f),
-        glm::vec3(0.0f, 0.0f, -4.0f),  glm::vec3(2.0f, 2.0f, 2.0f),   glm::vec3(2.0f, 2.0f, -2.0f),
-        glm::vec3(-2.0f, 2.0f, 2.0f),  glm::vec3(-2.0f, 2.0f, -2.0f), glm::vec3(2.0f, -2.0f, 2.0f)
-    };
+
+
+    std::vector<glm::vec3> cubePositions;
+
+    int renderDistance = 16; // cubes in each direction
+    float spacing = 1.0f;    // 1 cube wide
+
+    glm::vec3 playerPos = camera.GetPosition();
+
+    int playerBlockX = static_cast<int>(std::floor(playerPos.x));
+    int playerBlockZ = static_cast<int>(std::floor(playerPos.z));
+
+    std::cout << "Player Block Position: (" << playerBlockX << ", " << playerBlockZ << ")\n";
+
+    for (int x = -renderDistance; x <= renderDistance; x++) {
+        for (int z = -renderDistance; z <= renderDistance; z++) {
+            cubePositions.push_back(glm::vec3(
+                playerBlockX + x * spacing,
+                0.0f, // flat ground
+                playerBlockZ + z * spacing
+            ));
+        }
+    }
+
 
     // Set up vertex arrays and buffers
     unsigned int VBO, VAO, EBO;
@@ -194,34 +205,36 @@ int main() {
         glm::mat4 view = camera.GetViewMatrix();
         glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
 
-        int selectedCube = getSelectedCube(cubePositions, 30, 1920, 1080, view, projection, camera);
-        if (selectedCube != -1) {
-            // **First Pass: Render Cubes and Write to Stencil Buffer**
-            glStencilFunc(GL_ALWAYS, 1, 0xFF); // All fragments update the stencil buffer
-            glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE); // Set stencil value to 1 where drawn
-            glStencilMask(0xFF); // Enable writing to the stencil buffer
-            glEnable(GL_DEPTH_TEST); // Ensure depth testing is enabled
 
-            CubeShader.Use();
-            glBindVertexArray(VAO);
 
-            // Set matrices
-            CubeShader.SetMatrix4("u_view", view);
-            CubeShader.SetMatrix4("u_proj", projection);
+        //int selectedCube = getSelectedCube(cubePositions, 30, 1920, 1080, view, projection, camera);
+        //if (selectedCube != -1) {
+        //    // **First Pass: Render Cubes and Write to Stencil Buffer**
+        //    glStencilFunc(GL_ALWAYS, 1, 0xFF); // All fragments update the stencil buffer
+        //    glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE); // Set stencil value to 1 where drawn
+        //    glStencilMask(0xFF); // Enable writing to the stencil buffer
+        //    glEnable(GL_DEPTH_TEST); // Ensure depth testing is enabled
 
-            lighting.SetLightUniforms(uniforms, camera.GetPosition(), camera.GetFront());
+        //    CubeShader.Use();
+        //    glBindVertexArray(VAO);
 
-            // Bind textures
-            diffuseMap.Bind(0);
-            specularMap.Bind(1);
+        //    // Set matrices
+        //    CubeShader.SetMatrix4("u_view", view);
+        //    CubeShader.SetMatrix4("u_proj", projection);
 
-            glm::mat4 model = glm::mat4(1.0f);
-            model = glm::translate(model, cubePositions[selectedCube]);
-            model = glm::rotate(model, 0.5f * (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
-            CubeShader.SetMatrix4("u_model", model);
-            glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+        //    lighting.SetLightUniforms(uniforms, camera.GetPosition(), camera.GetFront());
 
-        }
+        //    // Bind textures
+        //    diffuseMap.Bind(0);
+        //    specularMap.Bind(1);
+
+        //    glm::mat4 model = glm::mat4(1.0f);
+        //    model = glm::translate(model, cubePositions[selectedCube]);
+        //    model = glm::rotate(model, 0.5f * (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
+        //    CubeShader.SetMatrix4("u_model", model);
+        //    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+        //}
 
         // **Second Pass: Render Outlines**
         glStencilFunc(GL_ALWAYS, 0, 0xFF); // Pass test if stencil value is not 1
@@ -240,32 +253,32 @@ int main() {
         diffuseMap.Bind(0);
         specularMap.Bind(1);
 
-        for (int i = 0; i < 30; i++) {
-            if (i == selectedCube) continue;
+        for (auto& pos: cubePositions) {
+            //if (i == selectedCube) continue;
             glm::mat4 model = glm::mat4(1.0f);
-            model = glm::translate(model, cubePositions[i]);
+            model = glm::translate(model, pos);
             CubeShader.SetMatrix4("u_model", model);
             glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
         }
 
         // Render scaled cubes for outline
-        if (selectedCube != -1){
-            glStencilFunc(GL_NOTEQUAL, 1, 0xff);
-			glStencilMask(0x00);
-			glDisable(GL_DEPTH_TEST);
-			OutlineShader.Use();
-			OutlineShader.SetMatrix4("u_view", view);
-			OutlineShader.SetMatrix4("u_proj", projection);
-			OutlineShader.SetFloat("u_time", glfwGetTime());
-			glm::mat4 model = glm::mat4(1.0f);
-            float scale = 1.01f; // Scale factor for the outline
-			model = glm::translate(model, cubePositions[selectedCube]);
-			model = glm::scale(model, glm::vec3(scale)); // Scale the model matrix
-			model = glm::rotate(model, 0.5f * (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
-			OutlineShader.SetMatrix4("u_model", model);
-			glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+   //     if (selectedCube != -1){
+   //         glStencilFunc(GL_NOTEQUAL, 1, 0xff);
+			//glStencilMask(0x00);
+			//glDisable(GL_DEPTH_TEST);
+			//OutlineShader.Use();
+			//OutlineShader.SetMatrix4("u_view", view);
+			//OutlineShader.SetMatrix4("u_proj", projection);
+			//OutlineShader.SetFloat("u_time", glfwGetTime());
+			//glm::mat4 model = glm::mat4(1.0f);
+   //         float scale = 1.01f; // Scale factor for the outline
+			//model = glm::translate(model, cubePositions[selectedCube]);
+			//model = glm::scale(model, glm::vec3(scale)); // Scale the model matrix
+			//model = glm::rotate(model, 0.5f * (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
+			//OutlineShader.SetMatrix4("u_model", model);
+			//glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
 
-        }
+   //     }
 
         // Reset stencil and depth state
         glStencilMask(0xFF); // Re-enable stencil writing
