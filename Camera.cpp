@@ -57,6 +57,7 @@ void Camera::ProcessKeyboard(GLFWwindow* window, float deltaTime) {
 		onGround = true;
     }
     // Toggle camera mode with TAB
+
     if (glfwGetKey(window, GLFW_KEY_TAB) == GLFW_PRESS) {
         m_cameraMode = !m_cameraMode;
         if (m_cameraMode) {

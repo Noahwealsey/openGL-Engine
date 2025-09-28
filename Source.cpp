@@ -3,11 +3,14 @@
 #include "Shader.h"
 #include "Texture.h"
 #include "Lighting.h"
+#include "Model.h"
 #include <iostream>
 #include <thread>
 #include <chrono>
 #include <vector>
 #include <algorithm>
+
+
 
 int getSelectedCube(const glm::vec3 *cubePositions, int numCubes, int screenWidth, int screenHeight, const glm::mat4 &view, const glm::mat4 &projection, const Camera &camera) {
     
@@ -54,6 +57,7 @@ int main() {
     Shader CubeShader("resources/Shaders/Basic_shader.glsl");
     Shader lightCubeShader("resources/Shaders/bulb_shader.glsl");
 	Shader OutlineShader("resources/Shaders/outline.glsl");
+    Shader ModelShader("resources/Shaders/house_shader.glsl");
 
     if (!CubeShader.IsValid() || !lightCubeShader.IsValid()) {
         std::cerr << "Failed to load shaders!" << std::endl;
@@ -181,9 +185,10 @@ int main() {
     GLuint timerQuery;
     glGenQueries(1, &timerQuery);
     GLuint64 elapsed_time;
-
     float lastFrame = 0.0f;
     
+    Model house("resources/Model/House.obj", "resources/Model/");
+
     // Main render loop
     // Main render loop
     while (!glfwWindowShouldClose(window)) {
@@ -260,6 +265,26 @@ int main() {
             CubeShader.SetMatrix4("u_model", model);
             glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
         }
+        //model drawing
+		ModelShader.Use();
+        glm::mat4 model = glm::mat4(1.0f);
+		model = glm::translate(model, glm::vec3(0.0f, 0.6f, 1.0f));
+		//model = glm::scale(model, glm::vec3(.1f, .1f, .1f));
+
+        ModelShader.SetMatrix4("u_model", model);
+        ModelShader.SetMatrix4("u_view", view);
+        ModelShader.SetMatrix4("u_proj", projection);
+        ModelShader.SetVec3("viewPos", camera.GetPosition());
+        ModelShader.SetVec3("lightPos", camera.GetPosition()); // if flashlight
+        ModelShader.SetVec3("lightColor", glm::vec3(1.0f));
+
+        // Material from .mtl
+        ModelShader.SetBool("hasTexture", false); // true if later you add textures
+        ModelShader.SetVec3("materialDiffuse", house.materialDiffuse);
+        ModelShader.SetVec3("materialSpecular", house.materialSpecular);
+        ModelShader.SetFloat("materialShininess", house.materialShininess);
+
+        house.Draw();
 
         // Render scaled cubes for outline
    //     if (selectedCube != -1){
